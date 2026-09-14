@@ -1,0 +1,25 @@
+# Keep the build context small: it is the whole repo root, but the image only
+# needs go.mod/go.sum, cmd/, internal/ and deploy/root/.
+.git
+.gitignore
+.dockerignore
+
+bin/
+scratch/
+deploy/plex-config/
+
+# databases must never enter a build context (they are gigabytes)
+*.db
+*.db-wal
+*.db-shm
+
+docs/
+README.md
+deploy/README.md
+deploy/docker-compose.yml
+deploy/test-container.sh
+
+.DS_Store
+*.swp
+.idea/
+.vscode/

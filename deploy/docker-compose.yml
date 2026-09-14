@@ -1,0 +1,76 @@
+# Example: linuxserver/plex with plex-api baked in (the "layer" image).
+#
+#   docker compose -f deploy/docker-compose.yml up --build
+#
+# Run from the repo root; the build context is the repo root ("..").
+
+services:
+  plex:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.layer
+    image: plex-api-layer:dev
+    container_name: plex
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Chicago
+      - VERSION=docker
+      # - PLEX_CLAIM=claim-xxxxxxxxxxxxxxxxxxxx
+
+      # ---- plex-api ----
+      # Bind inside the container; the published port below is what limits
+      # exposure. 0.0.0.0 here is fine because the port mapping is
+      # 127.0.0.1-only.
+      - PLEX_API_BIND=0.0.0.0:32500
+      # ALWAYS set a token if the port is reachable from anything but
+      # localhost. The API is as privileged as the database file.
+      - PLEX_API_TOKEN=change-me
+      # Writes are off by default. Turn on deliberately.
+      - PLEX_API_WRITE=false
+      # Writing while PMS holds the database open is a foot-gun; only enable
+      # it if you understand the locking implications.
+      - PLEX_API_WRITE_WHILE_RUNNING=false
+      # Defaults shown for reference; normally omit these.
+      # - PLEX_API_PMS_DIR=/usr/lib/plexmediaserver
+      # - PLEX_API_DB_DIR=/config/Library/Application Support/Plex Media Server/Plug-in Support/Databases
+      # - PLEX_API_PMS_ADDR=127.0.0.1:32400
+      # - PLEX_API_TIMEOUT_MS=30000
+      # - PLEX_API_QUERY_TIMEOUT=30s
+
+      # ---- once the mod is published to an anonymously-pullable registry,
+      # ---- drop the build: block above, use lscr.io/linuxserver/plex:latest
+      # ---- as the image, and add:
+      # - DOCKER_MODS=ghcr.io/<owner>/plex-api-mod:latest
+    volumes:
+      - ./plex-config:/config
+      # - /path/to/media:/data:ro
+    ports:
+      - "32400:32400"
+      # Loopback only. Remove the 127.0.0.1: prefix at your own risk.
+      - "127.0.0.1:32500:32500"
+    restart: unless-stopped
+
+# --------------------------------------------------------------------------
+# Published-mod form (no local build). Replace the service above with:
+#
+# services:
+#   plex:
+#     image: lscr.io/linuxserver/plex:latest
+#     container_name: plex
+#     environment:
+#       - PUID=1000
+#       - PGID=1000
+#       - TZ=America/Chicago
+#       - VERSION=docker
+#       - DOCKER_MODS=ghcr.io/<owner>/plex-api-mod:latest
+#       - PLEX_API_TOKEN=change-me
+#     volumes:
+#       - ./plex-config:/config
+#     ports:
+#       - "32400:32400"
+#       - "127.0.0.1:32500:32500"
+#     restart: unless-stopped
+#
+# DOCKER_MODS pulls anonymously, so the mod image must be PUBLIC.
+# --------------------------------------------------------------------------

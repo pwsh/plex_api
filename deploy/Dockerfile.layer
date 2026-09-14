@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+#
+# Derived image: linuxserver/plex with plex-api baked in.
+#
+# Use this for private development, where DOCKER_MODS cannot help: mods are
+# pulled ANONYMOUSLY by the container at startup, so a private registry
+# (Forgejo/Gitea, a private ghcr package, ...) cannot serve one.
+#
+# Build from the REPO ROOT:
+#   docker build -f deploy/Dockerfile.layer -t plex-api-layer:dev .
+
+FROM golang:1.26-alpine AS build
+WORKDIR /src
+COPY go.mod go.su[m] ./
+RUN go mod download || true
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/plex-api ./cmd/plex-api
+
+FROM lscr.io/linuxserver/plex:latest
+
+LABEL org.opencontainers.image.title="plex-api-layer"
+LABEL org.opencontainers.image.description="linuxserver/plex + plex-api HTTP database service"
+LABEL org.opencontainers.image.source="https://github.com/pwsh/plex_api"
+
+COPY deploy/root/ /
+COPY --from=build /out/plex-api /usr/local/bin/plex-api
+
+EXPOSE 32400 32500

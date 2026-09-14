@@ -1,0 +1,29 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+#
+# plex-api: HTTP access to the Plex library database, driving the
+# "Plex SQLite" engine that ships inside the PMS install.
+#
+# Dependencies: init-services only -- deliberately NOT svc-plex.
+#   The API must keep serving while Plex Media Server is stopped (that is
+#   the whole point of the write modes), and a PMS crash-loop must not take
+#   the API down with it. The Go service handles a missing database file by
+#   reporting it over /health rather than by refusing to start.
+
+# Readiness probe port: taken from PLEX_API_BIND (host:port), default 32500.
+PLEX_API_PORT="${PLEX_API_BIND##*:}"
+if [[ ! ${PLEX_API_PORT} =~ ^[0-9]+$ ]]; then
+    PLEX_API_PORT=32500
+fi
+
+echo "Starting plex-api on port ${PLEX_API_PORT} . . ."
+
+if [[ -z ${LSIO_NON_ROOT_USER} ]]; then
+    exec \
+        s6-notifyoncheck -d -n 60 -w 1000 -c "nc -z localhost ${PLEX_API_PORT}" \
+            s6-setuidgid abc /usr/local/bin/plex-api
+else
+    exec \
+        s6-notifyoncheck -d -n 60 -w 1000 -c "nc -z localhost ${PLEX_API_PORT}" \
+            /usr/local/bin/plex-api
+fi

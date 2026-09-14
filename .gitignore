@@ -1,0 +1,7 @@
+/plex-api
+/bin/
+/scratch/
+deploy/plex-config/
+*.db
+*.db-wal
+*.db-shm

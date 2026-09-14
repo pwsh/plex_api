@@ -1,0 +1,39 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+#
+# plex-api managed indexes.
+#
+# This oneshot runs BEFORE Plex Media Server: svc-plex carries a
+# dependencies.d/init-plex-api-indexes file, so s6 will not start Plex until
+# this script has returned. That is why nothing here has to stop or restart
+# Plex, and why there is never lock contention on the library database.
+#
+# It ALWAYS exits 0. Plex starting is more important than our indexes; a
+# failure is logged and the container carries on.
+
+STATE_DIR="${PLEX_API_STATE_DIR:-/config/plex-api}"
+STATE_FILE="${STATE_DIR}/indexes.json"
+
+# The cheapest possible no-op: never even start the binary when the feature is
+# off and nothing was ever created.
+shopt -s nocasematch
+if [[ ! ${PLEX_API_INDEXES} =~ ^(1|t|true|y|yes|on)$ ]] && [[ ! -f ${STATE_FILE} ]]; then
+    echo "[plex-api] managed indexes disabled (PLEX_API_INDEXES is not set); skipping"
+    exit 0
+fi
+shopt -u nocasematch
+
+echo "[plex-api] checking managed indexes . . ."
+
+if [[ -z ${LSIO_NON_ROOT_USER} ]]; then
+    mkdir -p "${STATE_DIR}"
+    chown abc:abc "${STATE_DIR}" 2>/dev/null
+    s6-setuidgid abc /usr/local/bin/plex-api -ensure-indexes \
+        || echo "[plex-api] index step failed (see above); Plex will start anyway"
+else
+    mkdir -p "${STATE_DIR}"
+    /usr/local/bin/plex-api -ensure-indexes \
+        || echo "[plex-api] index step failed (see above); Plex will start anyway"
+fi
+
+exit 0
